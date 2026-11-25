@@ -1,53 +1,81 @@
-// Keyboard and pointer input. Held keys give a steering direction; one-shot presses (start or
-// restart, pause) are queued as bit flags and taken once by the loop, so a press between two
-// frames is never lost and never counted twice.
+// Keyboard, pointer and station picking. The canvas is scaled with CSS, so pointer
+// coordinates are converted back into the fixed 1280x720 playfield here.
 
-export const ACTION_CONFIRM = 1;
-export const ACTION_PAUSE = 2;
+import { FIELD } from './config.js';
 
-const LEFT = new Set(['ArrowLeft', 'KeyA']);
-const RIGHT = new Set(['ArrowRight', 'KeyD']);
-const CONFIRM = new Set(['Space', 'Enter']);
-const PAUSE = new Set(['KeyP', 'Escape']);
+const LEFT = ['KeyA', 'ArrowLeft'];
+const RIGHT = ['KeyD', 'ArrowRight'];
+const UP = ['KeyW', 'ArrowUp'];
+const DOWN = ['KeyS', 'ArrowDown'];
 
-export function createInput(target) {
-  let left = false;
-  let right = false;
-  let actions = 0;
+export const KEYS = {
+  interact: 'KeyE',
+  chop: 'Space',
+  pause: 'KeyP',
+  mute: 'KeyM',
+  confirm: 'Enter',
+  restart: 'Enter',
+};
+
+export function createInput(canvas) {
+  const down = new Set();
+  const pressed = new Set();
+  const clicks = [];
+  const pointer = { x: 0, y: 0, down: false, inside: false };
+
+  function toField(event) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = FIELD.width / Math.max(1, rect.width);
+    const scaleY = FIELD.height / Math.max(1, rect.height);
+    return {
+      x: (event.clientX - rect.left) * scaleX,
+      y: (event.clientY - rect.top) * scaleY,
+    };
+  }
 
   window.addEventListener('keydown', (event) => {
-    if (LEFT.has(event.code)) left = true;
-    else if (RIGHT.has(event.code)) right = true;
-    else if (CONFIRM.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_CONFIRM;
-    } else if (PAUSE.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_PAUSE;
-    } else return;
-    event.preventDefault();
+    if (!event.repeat) pressed.add(event.code);
+    down.add(event.code);
+    if (event.code === 'Space' || event.code.startsWith('Arrow')) event.preventDefault();
   });
   window.addEventListener('keyup', (event) => {
-    if (LEFT.has(event.code)) left = false;
-    else if (RIGHT.has(event.code)) right = false;
+    down.delete(event.code);
   });
-  // A key released while the tab is hidden never sends keyup: let go of everything on blur.
   window.addEventListener('blur', () => {
-    left = false;
-    right = false;
+    down.clear();
+    pointer.down = false;
   });
-  target.addEventListener('pointerdown', () => {
-    actions |= ACTION_CONFIRM;
+  canvas.addEventListener('pointerdown', (event) => {
+    const point = toField(event);
+    pointer.x = point.x;
+    pointer.y = point.y;
+    pointer.down = true;
+    pointer.inside = true;
+    clicks.push({ x: point.x, y: point.y, button: event.button });
+    canvas.setPointerCapture?.(event.pointerId);
+  });
+  canvas.addEventListener('pointermove', (event) => {
+    const point = toField(event);
+    pointer.x = point.x;
+    pointer.y = point.y;
+    pointer.inside = true;
+  });
+  canvas.addEventListener('pointerup', (event) => {
+    pointer.down = false;
+    if (event.pointerId !== undefined) canvas.releasePointerCapture?.(event.pointerId);
+  });
+  canvas.addEventListener('pointerleave', () => {
+    pointer.inside = false;
+    pointer.down = false;
   });
 
   return {
-    /** -1 for left, 1 for right, 0 for neither or both. */
-    direction() {
-      return (right ? 1 : 0) - (left ? 1 : 0);
-    },
-    /** The one-shot presses since the last call, as ACTION_* flags. */
-    takeActions() {
-      const taken = actions;
-      actions = 0;
-      return taken;
-    },
+    pointer,
+    down: (code) => down.has(code),
+    pressed: (code) => pressed.has(code),
+    axisX: () => (LEFT.some((key) => down.has(key)) ? -1 : 0) + (RIGHT.some((key) => down.has(key)) ? 1 : 0),
+    axisY: () => (UP.some((key) => down.has(key)) ? -1 : 0) + (DOWN.some((key) => down.has(key)) ? 1 : 0),
+    takeClicks: () => clicks.splice(0, clicks.length),
+    endFrame: () => pressed.clear(),
   };
 }

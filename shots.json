@@ -1,5 +1,6 @@
 [
-  { "name": "1-start.jpg", "query": "?shot=start&seed=1" },
-  { "name": "2-play.jpg", "query": "?shot=play&seed=1" },
-  { "name": "3-end.jpg", "query": "?shot=end&seed=1" }
+  { "name": "1-rush.jpg", "query": "?shot=cover&seed=7", "note": "Cover: 0:47 left, three live tickets, chef at the wok, Midnight Noodles plated on the pass." },
+  { "name": "2-prep.jpg", "query": "?shot=prep&seed=7", "note": "Chopping Egg Fried Rice at the board, chop meter in the green, ticket highlighted." },
+  { "name": "3-plate.jpg", "query": "?shot=plate&seed=7", "note": "Chili Egg Noodles plated under the heat lamp, SERVE prompt and matching ticket." },
+  { "name": "4-title.jpg", "query": "?shot=title&seed=7", "note": "Title card over the kitchen with tonight's menu and controls." }
 ]
